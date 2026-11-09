@@ -1,0 +1,9 @@
+Modification notice for magpie-routing.json
+
+Modified from Herdr App v0.1.14 defaults/layouts/main.json (Apache-2.0).
+Changes: add the Magpie Routing panel, select the modified Tabs mod, and set
+the panel width, layout name and preview.
+
+Source: https://github.com/herdrdev/herdr-app/blob/2405bf388c568c3ed479f05b8e405ccfa44b3f2c/defaults/layouts/main.json
+The full upstream license and attribution notices are in 3rd-party-license.md
+in the repository root and each installed Magpie mod directory.
