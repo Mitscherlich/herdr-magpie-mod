@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 const js = await readFile(new URL("../mods/magpie-routing/routes.js", import.meta.url), "utf8");
-const { source, seat, ok, whole, mergeTrace, staged, seats, stateOf, color, geometry, way, stableSeats, destination, speed } = await import("data:text/javascript;base64," + Buffer.from(js).toString("base64"));
+const { source, seat, ok, whole, mergeTrace, staged, seats, stateOf, color, geometry, way, stableSeats, destination, speed, placed } = await import("data:text/javascript;base64," + Buffer.from(js).toString("base64"));
 const now = Date.now();
 assert.equal(destination({ name: "Codex", who: "account@example.com", kind: "account" }, true), "Codex · ••••");
 assert.equal(destination({ name: "Relay", who: "key name", kind: "key" }, false), "Relay · key name");
@@ -46,6 +46,8 @@ assert(!ok({ status: 0 })); assert(!ok({ status: 200, fail: "refused" }));
 const given = new Map(), near = new Set();
 for (const id of ["codex", "claude", "crush", "opencode"]) { const c = color(id, given, near); assert(!near.has(c)); near.add(c); }
 assert.equal(given.get("codex"), "#858ad7");
+assert.equal(color("dsh", new Map()), "#00a6b0", "Deepseek Harness keeps a fixed route color");
+assert.equal(color("grok", new Map()), "#5e95d7", "Grok Build keeps a fixed route color");
 for (const width of [280, 532, 560, 561, 860]) {
   const g = geometry(width, ["codex", "claude"], [w]), p = way(g, "codex", seat(w));
   assert.equal(g.width, width);
@@ -61,5 +63,13 @@ for (const width of [280, 532, 560, 561, 860]) {
   assert.equal(way(g, "missing", seat(w)), null);
 }
 assert.deepEqual(stableSeats([{ ...r, order: [w, { ...w, id: "next" }] }], ["next\u0001m", seat(w)]).map(seat), ["next\u0001m", seat(w)]);
+const codexA = { id: "codex-a", provider: "codex", name: "Codex", model: "m" };
+const kimi = { id: "kimi", provider: "kimi", name: "Kimi Code", model: "m" };
+const codexB = { id: "codex-b", provider: "codex", name: "Codex", model: "m" };
+const clients = ["codex", "dsh"];
+const wires = [[clients[0], seat(codexA)], [clients[1], seat(kimi)], [clients[0], seat(codexB)]];
+assert.deepEqual(placed(clients, [codexA, kimi, codexB], wires).map(x => x.id), ["codex-a", "codex-b", "kimi"], "accounts of one provider sit together beside the client that uses them");
+assert.deepEqual(placed(["dsh", "codex"], [codexA, kimi, codexB], wires).map(x => x.id), ["kimi", "codex-a", "codex-b"]);
+assert.deepEqual(placed(clients, [codexA, kimi, codexB], []).map(x => x.id), ["codex-a", "codex-b", "kimi"]);
 assert(staged(new Map(completed.map(r => [r.id, r])), null, now, new Set([1])).some(r => r.id === 1), "completed flight stays on stage until its return lands");
 console.log("Routing self-check passed (trace, restart, trim, concurrent callers, states, colors, resize).");

@@ -7,8 +7,8 @@ const source = path => readFile(new URL(path, import.meta.url), "utf8");
 const declarations = await source("../mods/magpie-routing/gpui-kit.d.ts");
 const methods = new Set([...declarations.matchAll(/^\s+(\w+)(?:<Self[^\n]+>|)\(/gm)].map(m => m[1]));
 // Keep the mock to one builder: no platform rendering is simulated.
-function element(kind) {
-  const node = { kind, nodes: [], calls: [] };
+function element(kind, extra) {
+  const node = { kind, nodes: [], calls: [], ...extra };
   const proxy = new Proxy(node, { get(target, key) {
     if (key in target) return target[key];
     assert(methods.has(key), `Undocumented GPUI method: ${String(key)}`);
@@ -28,7 +28,7 @@ const renderCx = { ...cx, phase: () => "render", notify() { assert.fail("render 
 const path = { move_to() { return this; }, line_to() { return this; }, cubic_bezier_to() { return this; }, dash_array() { return this; }, build() { return {}; } };
 const theme = new Proxy({}, { get: () => "#888888" });
 const sandbox = vm.createContext({
-  View: class {}, div: () => element("div"), svg: () => element("svg"), image: () => element("image"),
+  View: class {}, div: () => element("div"), svg: src => element("svg", { src }), image: src => element("image", { src }),
   v_flex: () => element("column"), h_flex: () => element("row"), PathBuilder: { stroke: () => path },
   Popover: { new: () => element("popover") },
   Scrollbar: { horizontal: () => element("scrollbar"), vertical: () => element("scrollbar") },
@@ -243,4 +243,32 @@ for (const identity of [callerKey, accountId, "account@example.com"]) {
 }
 assert(animated.flow, "removing identity fields must not prevent a flow clip from loading");
 animated.close();
+
+const named = new sandbox.Routing();
+named.init({}, cx);
+named.routes.set(4, sandbox.whole({ ...base, id: 4, agent: "dsh" }));
+named.routes.set(5, sandbox.whole({ ...base, id: 5, agent: "unknown-client" }));
+named.routes.set(6, sandbox.whole({ ...base, id: 6, agent: "grok" }));
+const namedTree = named.render(renderCx);
+const srcs = [], labels = [], glyphs = [];
+(function walk(node) {
+  if (!node || typeof node !== "object") return;
+  if (node.kind === "image") srcs.push(node.src);
+  if (node.kind === "svg" && node.src) glyphs.push(node);
+  for (const child of node.nodes || []) {
+    if (typeof child === "string") labels.push(child);
+    else walk(child);
+  }
+})(namedTree);
+assert(srcs.includes("mods/magpie-routing/agents/dsh.svg"), "dsh uses Magpie's DeepSeek icon");
+assert(labels.includes("Deepseek Harness"));
+const grokIcon = "mods/magpie-routing/agents/grok.svg";
+assert(!srcs.includes(grokIcon), "grok is a one-color glyph, not a fixed-color image");
+const grok = glyphs.filter(node => node.src === grokIcon);
+assert(grok.length > 0, "grok uses Magpie's xAI icon");
+assert(grok.every(node => node.calls.some(([key, args]) => key === "text_color" && args[0] === "#888888")), "grok follows the theme text color");
+assert(labels.includes("Grok Build"));
+assert(srcs.includes("mods/magpie-routing/agents/generic.svg"));
+assert(labels.includes("unknown-client"));
+named.close();
 console.log("Routing render self-check passed (documented API, request states, narrow/wide, flights, session machine following, manual override, stale polls, title-bar picker, animation argument privacy).");

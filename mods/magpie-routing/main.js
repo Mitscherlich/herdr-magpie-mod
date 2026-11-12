@@ -1,11 +1,27 @@
 import { View, div, svg, image, PathBuilder } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, Popover } from "gpui-base";
 import { layout, run, theme, nextCommand, appHome, exec, machines, spaces, window as hostWindow } from "herdr";
-import { source, seat, ok, mergeTrace, staged, seats, stateOf, geometry, curve, way, destination, speed } from "./routes.js";
+import { source, seat, ok, mergeTrace, staged, seats, stateOf, geometry, curve, way, destination, speed, placed } from "./routes.js";
 import { readTrace } from "./trace.js";
 
 const ASSETS = "mods/magpie-routing/";
-const NAMES = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", crush: "Crush", gemini: "Gemini", cursor: "Cursor", pi: "Pi" };
+// Icon files are Magpie's agent artwork. dsh uses deepseek-color.svg.
+// Grok Build's id is grok and its icon is xai.svg; Magpie has no grok-build file.
+const CLIENTS = {
+  claude: ["Claude Code", "claude.svg"],
+  codex: ["Codex", "codex.svg"],
+  opencode: ["OpenCode", "opencode.svg"],
+  crush: ["Crush", "crush.png"],
+  gemini: ["Gemini", "gemini.svg"],
+  cursor: ["Cursor", "cursor.svg"],
+  pi: ["Pi", "pi.svg"],
+  dsh: ["Deepseek Harness", "dsh.svg"],
+  grok: ["Grok Build", "grok.svg"],
+};
+const clientName = agent => CLIENTS[agent]?.[0] || agent;
+const clientIcon = agent => ASSETS + "agents/" + (CLIENTS[agent]?.[1] || "generic.svg");
+// One-color glyphs follow the theme text color. image() would paint currentColor black.
+const TINTED = new Set(["grok"]);
 function find(n, id) { if (n?.id === id) return n; for (const c of n?.children || []) { const found = find(c, id); if (found) return found; } return null; }
 function shown() { const root = layout(); return !find(root, "panel")?.hidden && find(root, "panel-body")?.active === "routing"; }
 const number = n => (n || 0).toLocaleString();
@@ -101,7 +117,14 @@ export default class Routing extends View {
     const rs = this.stage(), ids = [...new Set(rs.map(source))];
     const used = new Set(rs.flatMap(r => r.tries.length ? r.tries.map(seat) : r.order.slice(0, 1).map(seat)));
     const ws = seats(rs).filter(w => used.has(seat(w)));
-    return { rs, ids, ws, g: geometry(this.width - 54, ids, ws) };
+    const seen = new Set(), links = [];
+    for (const r of rs) for (const tr of r.tries) {
+      const to = seat(tr), key = source(r) + "\0" + to;
+      if (!used.has(to) || seen.has(key)) continue;
+      seen.add(key); links.push([source(r), to]);
+    }
+    const rows = placed(ids, ws, links);
+    return { rs, ids, ws: rows, g: geometry(this.width - 54, ids, rows) };
   }
   startFlights(cx) {
     if (this.picked || !this.connected || !shown() || !hostWindow().active) return;
@@ -237,7 +260,9 @@ export default class Routing extends View {
   }
 
   agentIcon(r, size = 13) {
-    return image(ASSETS + `agents/${r.agent === "crush" ? "crush.png" : (NAMES[r.agent] ? r.agent + ".svg" : "generic.svg")}`).size(size).flex_none();
+    const path = clientIcon(r.agent);
+    const icon = TINTED.has(r.agent) ? svg(path).text_color(theme().foreground) : image(path);
+    return icon.size(size).flex_none();
   }
 
   statusColor(r) {
@@ -271,7 +296,7 @@ export default class Routing extends View {
     for (const id of ids) {
       const box = g.agents.get(id), r = rs.filter(r => source(r) === id).at(-1);
       root.child(h_flex().absolute().left(box.x).top(box.y).w(box.w).h(box.h).px(8).gap(7).items_center().rounded(6).border(1).border_color(t.border).bg(t.surface)
-        .child(this.agentIcon(r)).child(label(NAMES[r.agent] || r.agent, 11, t.foreground).min_w(0).truncate()));
+        .child(this.agentIcon(r)).child(label(clientName(r.agent), 11, t.foreground).min_w(0).truncate().tooltip(clientName(r.agent))));
     }
     for (const w of ws) {
       const box = g.rows.get(seat(w)), state = stateOf(w, rs, this.now()), active = this.connected && ["live", "quiet"].includes(state.kind);
@@ -297,7 +322,7 @@ export default class Routing extends View {
       .bg(this.picked === r.id ? t.selected : t.surface).hover(s => s.bg(t.hover))
       .on_click((_e, cx) => { this.clearFlights(); this.picked = r.id; cx.notify(); })
       .child(h_flex().items_center().gap(7).min_w(0)
-        .child(this.agentIcon(r)).child(label(NAMES[r.agent] || r.agent, 13, t.foreground).flex_none())
+        .child(this.agentIcon(r)).child(label(clientName(r.agent), 13, t.foreground).flex_none())
         .child(label(r.model, 10.5, t.muted).px(5).py(2).rounded(4).bg(t.raised).min_w(0).truncate().tooltip(r.model))
         .child(div().flex_1())
         .when(!r.done, el => el.child(this.dot(`request-dot-${r.id}`, this.statusColor(r))))

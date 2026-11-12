@@ -1,6 +1,6 @@
 // Ported from Magpie's Routing page (MIT, Copyright (c) 2026 yetone).
 export const PALETTE = ["#d97757", "#bd8638", "#a59234", "#849e4a", "#5aa66c", "#25a98f", "#00a6b0", "#2e9fc9", "#5e95d7", "#858ad7", "#a47fca", "#bb77b1"];
-const HUES = { claude: 0, codex: 9, gemini: 7, copilot: 10, cursor: 5, opencode: 2, crush: 11, goose: 3, pi: 4 };
+const HUES = { claude: 0, codex: 9, gemini: 7, copilot: 10, cursor: 5, opencode: 2, crush: 11, goose: 3, pi: 4, dsh: 6, grok: 8 };
 export const source = r => r.agent + (r.callerKey ? "\u0001" + r.callerKey : "");
 export const seat = w => w.id + "\u0001" + (w.model || "");
 export const ok = tr => tr.status > 0 && tr.status < 400 && !tr.fail && !tr.error;
@@ -115,4 +115,31 @@ export function stableSeats(rs, previous = []) {
   const ws = seats(rs), latest = new Map(ws.map(w => [seat(w), w]));
   const ids = [...previous.filter(id => latest.has(id)), ...ws.map(seat).filter(id => !previous.includes(id))];
   return ids.map(id => latest.get(id));
+}
+
+// One provider's accounts stay in one block. Blocks sit beside the clients that use them, so wires do not cross just because accounts arrived at different times.
+export function placed(ids, ws, links) {
+  const at = new Map(ids.map((id, i) => [id, i]));
+  const touch = new Map();
+  for (const [from, to] of links) {
+    const i = at.get(from);
+    if (i == null) continue;
+    const xs = touch.get(to);
+    if (xs) xs.push(i); else touch.set(to, [i]);
+  }
+  const mean = id => { const xs = touch.get(id); return xs ? xs.reduce((a, b) => a + b, 0) / xs.length : null; };
+  const groups = [], index = new Map();
+  ws.forEach((w, n) => {
+    const key = String(w.provider || w.name || seat(w)).toLowerCase();
+    let g = index.get(key);
+    if (!g) { g = { n, members: [] }; index.set(key, g); groups.push(g); }
+    g.members.push({ w, n, score: mean(seat(w)) });
+  });
+  for (const g of groups) {
+    const scores = g.members.map(m => m.score).filter(s => s != null);
+    g.score = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+    g.members.sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity) || a.n - b.n);
+  }
+  groups.sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity) || a.n - b.n);
+  return groups.flatMap(g => g.members.map(m => m.w));
 }
