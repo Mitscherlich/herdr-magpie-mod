@@ -1,4 +1,4 @@
-Modification notice for magpie-routing.json
+Modification notice for Magpie.json
 
 Modified from Herdr App v0.1.14 defaults/layouts/main.json (Apache-2.0).
 Changes: add the Magpie Routing panel, select the modified Tabs mod, and set

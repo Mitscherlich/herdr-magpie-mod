@@ -16,7 +16,7 @@ third-party code and assets listed below retain their upstream licenses.
 The Tabs mod was modified to add the Routing panel controls. The cloned layout
 was modified to add the panel, use the modified Tabs mod, and change its width,
 name, and preview; its modification notice is in
-`layouts/magpie-routing.json.license`. Magpie's routing and animation code was
+`layouts/Magpie.json.license`. Magpie's routing and animation code was
 adapted for GPUI and Python. The copied Crush PNG has had timestamp metadata
 removed without changing its pixels.
 

@@ -15,7 +15,7 @@ for (const name of ["magpie-routing", "magpie-tabs"]) {
   const original = clone && read(`${home}/mods/tabs/main.js`, "utf8").replaceAll("mods/tabs/", "mods/magpie-tabs/");
   if (!clone || read(`${folder}/main.js`, "utf8") !== original) throw new Error(`Refusing to overwrite existing mod: ${folder}`);
 }
-const file = `${home}/layouts/magpie-routing.json`;
+const file = `${home}/layouts/Magpie.json`;
 if (exists(file) && JSON.parse(read(file)).cloned_from?.name !== "main") throw new Error(`Refusing to overwrite existing layout: ${file}`);
 JS
 
@@ -35,17 +35,18 @@ for name in magpie-routing magpie-tabs; do
   touch "$app_config/mods/$name/.herdr-magpie-mod"
 done
 rm -f "$app_config/mods/magpie-routing/fonts/magpie-routing-motion.ttf" "$app_config/mods/magpie-routing/fonts/magpie-routing-bird.ttf"
-cp layouts/magpie-routing.svg layouts/magpie-routing.json.license "$app_config/layouts/"
-if [ ! -f "$app_config/layouts/magpie-routing.json" ]; then
-  herdr-app do layout.clone '{"name":"main","as":"magpie-routing"}'
-  herdr-app do layout.set --layout "$(cat layouts/magpie-routing.json)"
+cp layouts/Magpie.svg layouts/Magpie.json.license "$app_config/layouts/"
+if [ ! -f "$app_config/layouts/Magpie.json" ]; then
+  herdr-app do layout.clone '{"name":"main","as":"Magpie"}'
+  herdr-app do layout.set --layout "$(cat layouts/Magpie.json)"
 else
-  herdr-app do layout.switch '{"name":"magpie-routing"}'
+  herdr-app do layout.switch '{"name":"Magpie"}'
+  herdr-app do layout.set --layout "$(cat layouts/Magpie.json)"
 fi
 # Keep the existing clone and its look; only supply this mod's Python executable.
 node --input-type=module - "$app_config" "$python" <<'JS'
 import { readFileSync, writeFileSync, renameSync } from "node:fs";
-const file = `${process.argv[2]}/layouts/magpie-routing.json`, layout = JSON.parse(readFileSync(file));
+const file = `${process.argv[2]}/layouts/Magpie.json`, layout = JSON.parse(readFileSync(file));
 function visit(node) {
   if (node.id === "routing") node.content.props = { python: process.argv[3] };
   for (const child of node.children || []) visit(child);
@@ -57,4 +58,18 @@ JS
 herdr-app do layout.resize '{"id":"panel","px":420}'
 herdr-app do layout.select '{"stack":"panel-body","child":"routing"}'
 herdr-app do layout.show '{"id":"panel"}'
+# Drop earlier names of this layout once Magpie is showing.
+node --input-type=module - "$app_config" <<'JS'
+import { existsSync as exists, readFileSync as read, rmSync } from "node:fs";
+const home = process.argv[2];
+for (const name of ["magpie-routing", "Custom"]) {
+  const file = `${home}/layouts/${name}.json`;
+  if (!exists(file)) continue;
+  const layout = JSON.parse(read(file, "utf8"));
+  if (layout.cloned_from?.name !== "main" || !JSON.stringify(layout).includes("magpie-routing")) continue;
+  for (const path of [file, `${home}/layouts/${name}.svg`, `${home}/layouts/${name}.json.license`, `${home}/layouts/.state/${name}.json`]) {
+    if (exists(path)) rmSync(path);
+  }
+}
+JS
 herdr-app status

@@ -19,7 +19,7 @@ sh install.sh
 
 The installer runs the self-checks and native mod checks, then installs the two mods and a cloned layout. It checks ownership before replacing existing files and preserves the clone's theme and per-space panel choices. Dependencies are not downloaded automatically.
 
-The install location is `HERDR_APP_HOME`, or `~/.config/herdr-app` by default. The Python executable is detected locally and recorded in the installed layout.
+The install location is `HERDR_APP_HOME`, or `~/.config/herdr-app` by default. The Python executable is detected locally and recorded in the installed layout. Settings → Look lists this layout as **Magpie**.
 
 Click **Routing** next to **Files** and **Changes** to open the panel. The machine picker follows the active session; a manual selection lasts until you switch sessions.
 
